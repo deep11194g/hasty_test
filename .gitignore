@@ -1,9 +1,10 @@
+.idea
+.DS_Store
+
 data
 
 .env
-
 *env
 
-.idea
-
-.DS_Store
+__pycache__
+*.pyc

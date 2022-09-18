@@ -10,7 +10,7 @@ from helper import create_new_project, upload_images
 def driver(project_name, images_dir):
     project = create_new_project(name=project_name)
     images = upload_images(images_dir=images_dir, hasty_project=project)
-    # TODO: Apply labels to uploaded images
+    # TODO: Apply labels to uploaded images; seek clarification from Andriy
 
 
 if __name__ == '__main__':
