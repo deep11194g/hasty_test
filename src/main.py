@@ -4,14 +4,14 @@ import argparse
 
 sys.path.append((os.environ.get('SRC_DIR')))
 
-from helper import create_new_project, upload_images, create_label_classes
+from helper import create_new_project, upload_images, upload_labels
 
 
 def driver(project_name, images_dir, labels_file_path):
     """Drives the script by calling needed functions with respective arguments"""
     project = create_new_project(name=project_name)
-    upload_images(images_dir=images_dir, hasty_project=project)
-    create_label_classes(label_class_file_path=labels_file_path, hasty_project=project)
+    image_name_obj_map = upload_images(hasty_project=project, images_dir=images_dir)
+    upload_labels(hasty_project=project, labels_file_path=labels_file_path, image_name_obj_map=image_name_obj_map)
 
 
 if __name__ == '__main__':
