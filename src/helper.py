@@ -38,7 +38,7 @@ def upload_images(hasty_project, images_dir):
     print("Created new dataset with ID: {} and name: {}".format(images_dataset.id, images_dataset.name))
     uploaded_image_map = {}  # Key: Image file name; Value: Generated Image ID
     # Assumption: Image file names are unique
-    print("\nUploading image files processed ...")
+    print("\nUploading image files ...")
     for idx, file_name in enumerate(os.listdir(path=images_dir)):
         image_file_path = images_dir + '/' + file_name
         try:
@@ -55,7 +55,9 @@ def upload_images(hasty_project, images_dir):
 
 def upload_labels(hasty_project, labels_file_path, image_name_obj_map):
     """
-    Read a JSON file of defined structure and create respective label classes in required Hasty project
+    Read a JSON file of defined structure and
+        1. Create label classes in the required Hasty project
+        2. Create labels (assign label classes to previously created images)
     Prescribed JSON structure:
         Root object to have key "label_classes" as list of objects and "images" as list of objects
         Each label_class doc should have mandatory keys: "class_name", "class_type"
@@ -71,12 +73,12 @@ def upload_labels(hasty_project, labels_file_path, image_name_obj_map):
         label_classes_doc = json.load(json_file)
     try:
         label_classes_from_doc = label_classes_doc['label_classes']
-        image_label_mapping_from_doc = label_classes_doc['images']
+        labels_from_doc = label_classes_doc['images']
     except KeyError:
         print('ERROR: Key `label_classes` and `images` are required')
         return
     label_class_map = _create_label_classes(label_classes_from_doc, hasty_project)
-    _apply_labels_to_images(image_name_obj_map, label_class_map, image_label_mapping_from_doc)
+    _apply_labels_to_images(image_name_obj_map, label_class_map, labels_from_doc)
 
 
 def _create_label_classes(label_classes_from_doc, hasty_project):
@@ -85,7 +87,7 @@ def _create_label_classes(label_classes_from_doc, hasty_project):
 
     :param(list of dict) label_classes_from_doc: Label class definitions to be created
     :param(hasty.Project) hasty_project: The project where the dataset and respective images are to be created
-    :return(dict[str, hasty.LabelClass]): Mapping of label classes created
+    :return(dict[str, str]): Mapping of label classes created with name as key and ID as value
     """
     generated_label_class_map = {}  # Key: Label class name; Value: label class ID
     # Assumption: Label class names are unique
@@ -100,22 +102,24 @@ def _create_label_classes(label_classes_from_doc, hasty_project):
         except KeyError:
             continue
         generated_label_class_map[label_class_obj.name] = label_class_obj.id
-    print("Created {} new label classes".format(len(generated_label_class_map)))
+    print("\nCreated {} new label classes\n".format(len(generated_label_class_map)))
     return generated_label_class_map
 
 
-def _apply_labels_to_images(image_name_obj_map, label_class_name_id_map, image_label_mapping_from_doc):
+def _apply_labels_to_images(image_name_obj_map, label_class_name_id_map, labels):
     """
     Apply labels to images
-    N.B: The labels and images created in the previous functions to be passed here mapped with names
+    The labels and images created in the previous functions to be passed here mapped with names
+    We parse the label data read from the JSON and create labels based on image and class names
+    N.B. The provided JSON has label class IDs and image IDs which wouldn't match with current ones.
 
     :param(dict[str, hasty.Image]) image_name_obj_map: Image name and ID mapping
-    :param(dict[str, str]) label_class_name_id_map:
-    :param(list of dict[str, Any]) image_label_mapping_from_doc:
-    :return:
+    :param(dict[str, str]) label_class_name_id_map: Label Class names mapped to ID
+    :param(list of dict[str, Any]) labels: Input Label data
+        (A label is a mapping of an image to multiple label classes and some additional data points)
     """
-    updated_images = 0
-    for image_doc in image_label_mapping_from_doc:
+    updated_images_count = 0
+    for image_doc in labels:
         image_name = image_doc.get('image_name')
         labels = image_doc.get('labels')
         if not (image_name and labels):
@@ -127,11 +131,11 @@ def _apply_labels_to_images(image_name_obj_map, label_class_name_id_map, image_l
             continue
         current_image_label_payload = []
         for label_doc in labels:
+            label_class_name = label_doc.get('class_name')
             try:
-                label_class_name = label_doc['class_name']
                 label_class_id = label_class_name_id_map[label_class_name]
-                print('ERROR: No label class found for name {}, imagae name: {}'.format(label_class_name, image_name))
             except KeyError:
+                print('ERROR: No label class found for name {}, image name: {}'.format(label_class_name, image_name))
                 continue
             payload_doc = {
                 'class_id': label_class_id,
@@ -143,5 +147,5 @@ def _apply_labels_to_images(image_name_obj_map, label_class_name_id_map, image_l
             current_image_label_payload.append(payload_doc)
         labels = image.create_labels(labels=current_image_label_payload)
         print("{} labels applied to Image named {} with ID {}".format(len(labels), image.name, image.id))
-        updated_images += 1
-    print("\n Total no. of images annotated with labels".format(updated_images))
+        updated_images_count += 1
+    print("\n Total no. of images annotated with labels: {}".format(updated_images_count))
